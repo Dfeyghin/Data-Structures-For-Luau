@@ -1,0 +1,118 @@
+local ReplicatedFirst = game.ReplicatedStorage:WaitForChild("ReplicatedScripts")
+local Libraries = ReplicatedFirst:WaitForChild("Libraries", 60)
+
+local Class = require(Libraries:WaitForChild("Class", 60))
+local Node = require(Libraries:WaitForChild("DataStructures", 60):WaitForChild("Node", 60))
+local Mutex = require(Libraries:WaitForChild("Mutex"))
+
+
+local Queue = Class()
+
+-- HELPER FUNCTIONS -- (any private functions of the class go here too)
+----------------------
+
+--local function WaitTillFree(self : Queue)
+--	if self._busy then
+--		self.IsFree:Wait()
+--		self._busy = true
+--	end
+--end
+
+--local function BecomeFree(self : Queue)
+--	if self._busy then
+--		self._busy = false
+--		self._freeEvent:Fire()
+--	end
+--end
+
+--non locking, local isEmpty
+local function IsEmpty(self)
+	return next(self._queue) == nil
+end
+
+--non locking, local isTargetInQueue
+local function IsTargetInQueue(self, target)
+	if not target then return end
+	for _,node in ipairs(self._queue) do
+		if node.data == target then return true end
+	end
+	return false
+end
+
+
+
+-- CONSTRUCTOR --
+-----------------
+function Queue:New(noDuplicates : boolean?)
+	self._mutex = Mutex()
+	self._queue = {}
+	--self._busy = false
+	--local freeId
+	--freeId, self.IsFree = self:NewEvent("IsFree")
+	--self._freeEvent = self:GetEvent(freeId)
+	self._filterDuplicates = noDuplicates or false
+end
+
+
+-- CLASS DEFINITION --
+----------------------
+
+function Queue:IsEmpty()
+	self._mutex:Lock()
+	local isEmpty = next(self._queue) == nil
+	self._mutex:Unlock()
+	return isEmpty
+end
+
+function Queue:IsTargetInQueue(target)
+	if not target then return end
+	local isInQueue
+	self._mutex:Lock()
+	for _,node in ipairs(self._queue) do
+		if node.data == target then isInQueue = true break end
+	end
+	isInQueue = false
+	self._mutex:Unlock()
+	return isInQueue
+end
+
+
+function Queue:Pop()
+	self._mutex:Lock()
+	local popped
+	if not IsEmpty(self) then popped = table.remove(self._queue, 1) end
+	self._mutex:Unlock()
+	return popped and popped.data
+end
+
+
+function Queue:Peek()
+	self._mutex:Lock()
+	local peeked
+	if not IsEmpty(self) then peeked = self._queue[1] end
+	self._mutex:Unlock()
+	return peeked and peeked.data
+end
+
+
+function Queue:Push(target, insertDupe)
+	self._mutex:Lock()
+	if not self._filterDuplicates or (insertDupe or (not IsTargetInQueue(self, target))) then --either no duplicate filtering or there is and it's not a duplicate or we force push dupe
+		local lastId = #self._queue
+		table.insert(self._queue, Node(target, lastId + 1, if lastId > 1 then self._queue[lastId] else nil))
+	end
+	self._mutex:Unlock()
+end
+
+
+function Queue:PushFirst(target, insertDupe)
+	self._mutex:Lock()
+	if not self._filterDuplicates or (insertDupe or (not IsTargetInQueue(self, target))) then --either no duplicate filtering or there is and it's not a duplicate or we force push dupe
+		local lastId = #self._queue
+		table.insert(self._queue, 1, Node(target, lastId + 1, if lastId > 1 then self._queue[lastId] else nil))
+	end
+	self._mutex:Unlock()
+end
+
+
+return Queue
