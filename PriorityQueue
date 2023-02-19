@@ -1,0 +1,90 @@
+local ReplicatedFirst = game.ReplicatedStorage:WaitForChild("ReplicatedScripts")
+local Libraries = ReplicatedFirst:WaitForChild("Libraries", 60)
+
+local Class = require(Libraries:WaitForChild("Class", 60))
+local Queue = require(Libraries:WaitForChild("DataStructures", 60):WaitForChild("Queue", 60))
+local Mutex = require(Libraries:WaitForChild("Mutex",60))
+
+local PriorityQueue = Class()
+
+-- CONSTANTS --
+---------------
+DEFAULT_NUMBER_OF_PRIORITIES = 3
+
+
+-- CONSTRUCTOR --
+-----------------
+
+function PriorityQueue:New(numberOfPriorities: number?, noDuplicates : boolean?)
+	self._queues = {}
+	self._mutex = Mutex()
+	self._numberOfPriorities = if numberOfPriorities and numberOfPriorities > 0 then numberOfPriorities else DEFAULT_NUMBER_OF_PRIORITIES
+	for priority = 1,self._numberOfPriorities do
+		self._queues[priority] = Queue(noDuplicates) 
+	end
+end
+
+
+-- CLASS DEFINITION --
+----------------------
+
+function PriorityQueue:IsEmpty()
+	self._mutex:Lock()
+	local isEmpty
+	for _, queue in ipairs(self._queues) do
+		if not queue:IsEmpty() then isEmpty = false break end --if found a queue that isn't empty - return false
+	end
+	isEmpty = true
+	self._mutex:Unlock()
+	return isEmpty
+end
+
+
+function PriorityQueue:Pop()
+	self._mutex:Lock()
+	local popped
+	-- find the highest priority queue that isn't empty (the first that isn't empty) and pop it:
+	for _, queue in ipairs(self._queues) do
+		if queue:IsEmpty() then continue end -- if queue is empty, continue to the next (lower priority) queue
+		popped = queue:Pop()
+		break
+	end
+	self._mutex:Unlock()
+	return popped
+	--if all queues are empty nothing to pop
+end
+
+
+function PriorityQueue:Peek()
+	self._mutex:Lock()
+	local peeked
+	for _, queue in ipairs(self._queues) do
+		if queue:IsEmpty() then continue end -- if queue is empty, continue to the next (lower priority) queue
+		peeked = queue:Peek() -- find the highest priority queue that isn't empty (the first that isn't empty) and pop it
+		break
+	end
+	self._mutex:Unlock()
+	return peeked
+	--if all queues are empty nothing to pop
+end
+
+
+function PriorityQueue:Push(target : any, priority : number?, insertDupe : boolean?)
+	self._mutex:Lock()
+	--if no priority provided or an incorrect number is provided, set it to the lowest priority
+	priority = if priority and priority > 0 and self._queues[priority] then priority else self._numberOfPriorities
+	self._queues[priority]:Push(target, insertDupe)
+	self._mutex:Unlock()
+end
+
+
+function PriorityQueue:PushFirst(target: any, priority : number?,  insertDupe : boolean?)
+	--if no priority is provided then PushFirst in the first priority, else pushFirst in the provided priority
+	self._mutex:Lock()
+	priority = if priority and priority > 0 and self._queues[priority] then priority else 1
+	self._queues[priority]:PushFirst(target, insertDupe)
+	self._mutex:Unlock()
+end
+
+return PriorityQueue
+
