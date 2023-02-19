@@ -1,0 +1,32 @@
+local ReplicatedFirst = game.ReplicatedStorage:WaitForChild("ReplicatedScripts")
+local Libraries = ReplicatedFirst:WaitForChild("Libraries", 60)
+
+local Class = require(Libraries:WaitForChild("Class", 60))
+
+local Node = Class()
+
+function Node:New(data: any, id: number?, parent : Node?)
+	self.data = data
+	self.id = id
+	self:SetParent(parent)
+end
+
+function Node:GetNext()
+	return self.child or nil
+end
+
+function Node:GetParent()
+	return self.parent
+end
+
+function Node:SetParent(parent : Node)
+	if not parent then return end
+	self.parent = parent
+	parent.child = self
+end
+
+function Node:IsRoot()
+	return self.parent == nil
+end
+
+return Node
